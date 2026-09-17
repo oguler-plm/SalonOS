@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
+enum Role {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  MANUAL
+  WHATSAPP
+  AI_AGENT
+}
+
+enum ReminderChannel {
+  WHATSAPP
+  SMS
+  EMAIL
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum MessageDirection {
+  IN
+  OUT
+}
+
+// ─────────────────────────────────────────────
+// Core tenant models
+// ─────────────────────────────────────────────
+
+model Business {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  phone     String?
+  address   String?
+  timezone  String   @default("Europe/Istanbul")
+
+  // Free-form settings: whatsappNumber, reminderHoursBefore, vb.
+  settings  Json     @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  employees    Employee[]
+  services     Service[]
+  customers    Customer[]
+  appointments Appointment[]
+  messageLogs  MessageLog[]
+
+  @@map("businesses")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role     @default(EMPLOYEE)
+
+  // EMPLOYEE rolündeki bir user, bir Employee kaydına bağlanabilir
+  employeeId   String?  @unique
+  employee     Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([businessId])
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// Employee & scheduling
+// ─────────────────────────────────────────────
+
+model Employee {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  name       String
+  phone      String?
+  isActive   Boolean  @default(true)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user             User?
+  workSchedules    WorkSchedule[]
+  timeOffs         TimeOff[]
+  employeeServices EmployeeService[]
+  appointments     Appointment[]
+  preferredByCustomers Customer[] @relation("PreferredEmployee")
+
+  @@index([businessId])
+  @@map("employees")
+}
+
+// Haftanın günü bazlı çalışma saatleri (dayOfWeek: 0=Pazar ... 6=Cumartesi)
+model WorkSchedule {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  dayOfWeek  Int
+  startTime  String   // "09:00"
+  endTime    String   // "18:00"
+  isOff      Boolean  @default(false)
+
+  @@unique([employeeId, dayOfWeek])
+  @@index([employeeId])
+  @@map("work_schedules")
+}
+
+// Tarih aralığı bazlı izinler (WorkSchedule'dan bağımsız, tek seferlik)
+model TimeOff {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  startDate  DateTime
+  endDate    DateTime
+  reason     String?
+
+  createdAt  DateTime @default(now())
+
+  @@index([employeeId])
+  @@map("time_offs")
+}
+
+// ─────────────────────────────────────────────
+// Services
+// ─────────────────────────────────────────────
+
+model Service {
+  id              String   @id @default(cuid())
+  businessId      String
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  name            String
+  price           Decimal  @db.Decimal(10, 2)
+  durationMinutes Int
+  isActive        Boolean  @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employeeServices EmployeeService[]
+  appointments     Appointment[]
+  preferredByCustomers Customer[] @relation("PreferredService")
+
+  @@index([businessId])
+  @@map("services")
+}
+
+// Employee <-> Service N-N (bir çalışan hangi hizmetleri verebiliyor)
+model EmployeeService {
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([employeeId, serviceId])
+  @@map("employee_services")
+}
+
+// ─────────────────────────────────────────────
+// Customers
+// ─────────────────────────────────────────────
+
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  firstName  String
+  lastName   String
+  phone      String
+  notes      String?
+
+  preferredEmployeeId String?
+  preferredEmployee   Employee? @relation("PreferredEmployee", fields: [preferredEmployeeId], references: [id], onDelete: SetNull)
+
+  preferredServiceId  String?
+  preferredService    Service? @relation("PreferredService", fields: [preferredServiceId], references: [id], onDelete: SetNull)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@unique([businessId, phone])
+  @@index([businessId])
+  @@map("customers")
+}
+
+// ─────────────────────────────────────────────
+// Appointments
+// ─────────────────────────────────────────────
+
+model Appointment {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  serviceId  String
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+
+  date       DateTime // gün (saat kısmı 00:00, sorgu/index kolaylığı için)
+  startTime  DateTime // tam zaman damgası
+  endTime    DateTime // tam zaman damgası (startTime + service.durationMinutes snapshot'ı)
+
+  // Hizmet fiyatı/süresi sonradan değişse de geçmiş kaydın bozulmaması için snapshot
+  price      Decimal  @db.Decimal(10, 2)
+
+  status     AppointmentStatus @default(PENDING)
+  source     AppointmentSource @default(MANUAL)
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  reminderLogs ReminderLog[]
+
+  @@index([businessId, date])
+  @@index([employeeId, date])
+  @@index([customerId])
+  @@map("appointments")
+}
+
+// ─────────────────────────────────────────────
+// Reminders (kanal-agnostik altyapı)
+// ─────────────────────────────────────────────
+
+model ReminderLog {
+  id            String   @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  channel       ReminderChannel
+  status        ReminderStatus @default(PENDING)
+  scheduledAt   DateTime
+  sentAt        DateTime?
+  error         String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([appointmentId])
+  @@index([status, scheduledAt])
+  @@map("reminder_logs")
+}
+
+// ─────────────────────────────────────────────
+// WhatsApp / AI mesaj günlüğü (ileriki entegrasyon için altyapı)
+// ─────────────────────────────────────────────
+
+model MessageLog {
+  id            String   @id @default(cuid())
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  customerPhone String
+  direction     MessageDirection
+  content       String
+
+  // AI agent'ın bu mesaja yanıt olarak çağırdığı tool'lar (varsa)
+  aiToolCalls   Json?
+
+  createdAt     DateTime @default(now())
+
+  @@index([businessId, customerPhone])
+  @@map("message_logs")
+}

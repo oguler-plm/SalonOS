@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: salonos
+      POSTGRES_PASSWORD: salonos
+      POSTGRES_DB: salonos
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U salonos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-off migration run — uses the `builder` stage, which still has the
+  # Prisma CLI and full source (the `runner` image is trimmed and doesn't).
+  migrate:
+    build:
+      context: .
+      target: builder
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://salonos:salonos@db:5432/salonos
+    command: npx prisma migrate deploy
+    restart: "no"
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://salonos:salonos@db:5432/salonos
+      AUTH_SECRET: ${AUTH_SECRET}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+    ports:
+      - "3000:3000"
+
+volumes:
+  db_data:

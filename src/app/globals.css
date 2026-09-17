@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  /* Warm, premium barbershop palette — cream surfaces, ink text, antique-gold accent. */
+  --color-bg: #f7f3ec;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1ebdf;
+  --color-ink: #211c17;
+  --color-ink-muted: #7a7166;
+  --color-ink-faint: #a89e90;
+  --color-border: #e6dcc9;
+  --color-border-strong: #d8cbae;
+
+  --color-accent: #a8823f;
+  --color-accent-dark: #7c5f2c;
+  --color-accent-soft: #efe2c3;
+  --color-accent-ink: #33260f;
+
+  --color-success: #3f6b4e;
+  --color-success-soft: #e2ede4;
+  --color-info: #3c5a72;
+  --color-info-soft: #e2ecf2;
+  --color-warning: #a3701f;
+  --color-warning-soft: #f3e6cd;
+  --color-danger: #a4402f;
+  --color-danger-soft: #f4e2dd;
+
+  --shadow-card: 0 1px 2px rgba(33, 28, 23, 0.04), 0 8px 24px -12px rgba(33, 28, 23, 0.12);
+  --shadow-elevated: 0 4px 12px rgba(33, 28, 23, 0.06), 0 16px 40px -16px rgba(33, 28, 23, 0.22);
+}
+
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --font-sans: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: var(--font-display), "Fraunces", serif;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+}
+
+.font-display {
+  font-family: var(--font-display), "Fraunces", serif;
+  letter-spacing: -0.01em;
+}
+
+/* Subtle warm noise so flat cream surfaces don't look sterile/digital. */
+.bg-grain {
+  background-image: radial-gradient(circle at 1px 1px, rgba(33, 28, 23, 0.045) 1px, transparent 0);
+  background-size: 18px 18px;
+}
