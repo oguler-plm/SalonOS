@@ -2,9 +2,14 @@ import * as repo from "@/server/repositories/reminder.repository";
 import { sendWhatsappMessage } from "@/server/services/whatsapp.service";
 
 const REMINDER_LEAD_HOURS = 24;
-// Job runs on an interval (see reminder.job.ts); this window must be >= that
-// interval so no appointment falls between two runs unreminded.
-const WINDOW_MINUTES = 20;
+// Must be >= the gap between two runs, or an appointment can fall in the gap
+// and never get reminded. Self-hosted (node-cron, every 15 min) only needs a
+// slim window, but Vercel's free-tier Cron collapses any schedule to once a
+// day — a wide window here is what makes that still work: the same
+// appointment gets rescanned by every run until it's caught, and the
+// reminderLogs dedupe in the repository query means a wider window never
+// sends a duplicate reminder, just gives more chances to catch it.
+const WINDOW_MINUTES = 25 * 60;
 
 function formatReminderText(customerName: string, serviceName: string, startTime: Date) {
   const time = startTime.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
