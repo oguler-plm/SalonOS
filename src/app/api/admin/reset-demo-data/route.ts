@@ -8,6 +8,25 @@ import { prisma } from "@/lib/prisma";
  * ADMIN_RESET_SECRET so it can't be hit without the header. Delete this route
  * (and the env var) once the one-time reset has been run.
  */
+export const GET = apiHandler(async (req: Request) => {
+  const authHeader = req.headers.get("authorization");
+  if (!process.env.ADMIN_RESET_SECRET || authHeader !== `Bearer ${process.env.ADMIN_RESET_SECRET}`) {
+    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  }
+  const slug = new URL(req.url).searchParams.get("slug") ?? "";
+  const business = await prisma.business.findUnique({ where: { slug } });
+  if (!business) {
+    return NextResponse.json({ error: "İşletme bulunamadı" }, { status: 404 });
+  }
+  const [appointmentCount, customerCount, serviceCount, employeeCount] = await Promise.all([
+    prisma.appointment.count({ where: { businessId: business.id } }),
+    prisma.customer.count({ where: { businessId: business.id } }),
+    prisma.service.count({ where: { businessId: business.id } }),
+    prisma.employee.count({ where: { businessId: business.id } }),
+  ]);
+  return NextResponse.json({ appointmentCount, customerCount, serviceCount, employeeCount });
+});
+
 export const POST = apiHandler(async (req: Request) => {
   const authHeader = req.headers.get("authorization");
   if (!process.env.ADMIN_RESET_SECRET || authHeader !== `Bearer ${process.env.ADMIN_RESET_SECRET}`) {
