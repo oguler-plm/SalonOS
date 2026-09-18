@@ -39,27 +39,19 @@ export const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "get_customer",
-    description: "Telefon numarasına göre müşteri kaydını arar. Kayıt yoksa null döner.",
-    input_schema: {
-      type: "object",
-      properties: {
-        phone: { type: "string", description: "Müşterinin telefon numarası" },
-      },
-      required: ["phone"],
-      additionalProperties: false,
-    },
+    description: "Şu an konuşulan WhatsApp numarasına ait müşteri kaydını arar (numara otomatik olarak konuşmadan alınır, ayrıca sorulmaz). Kayıt yoksa null döner.",
+    input_schema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
     name: "create_customer",
-    description: "Sistemde kaydı olmayan bir müşteri için yeni müşteri kaydı oluşturur.",
+    description: "Şu an konuşulan WhatsApp numarası için yeni müşteri kaydı oluşturur (numara otomatik alınır). Sadece ad ve soyad gerekir.",
     input_schema: {
       type: "object",
       properties: {
         firstName: { type: "string" },
         lastName: { type: "string" },
-        phone: { type: "string" },
       },
-      required: ["firstName", "lastName", "phone"],
+      required: ["firstName", "lastName"],
       additionalProperties: false,
     },
   },

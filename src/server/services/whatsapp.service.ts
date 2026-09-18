@@ -33,7 +33,7 @@ export async function handleInboundWhatsappMessage(
     content: text,
   });
 
-  const result = await runAgentTurn(business.id, history, text);
+  const result = await runAgentTurn(business.id, customerPhone, history, text);
 
   await messageLogRepo.logMessage(business.id, {
     customerPhone,

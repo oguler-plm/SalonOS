@@ -9,9 +9,11 @@ const MAX_TOOL_ROUNDTRIPS = 6;
 const SYSTEM_PROMPT = `Sen bir berber/kuaför işletmesinin WhatsApp asistanısın. Müşterilerle Türkçe, sıcak ve kısa cümlelerle konuş.
 
 Kurallar:
+- Konuşmanın EN BAŞINDA, henüz hiçbir şey sormadan önce sessizce get_customer tool'unu çağırarak bu numaranın kayıtlı bir müşteriye ait olup olmadığını kontrol et (numarayı ayrıca sorma, sistem otomatik biliyor).
+  - Kayıt bulunursa: müşteriyi ismiyle tanı, adını tekrar sorma, direkt talebine yardımcı ol.
+  - Kayıt bulunmazsa: müşteriye başka HİÇBİR ŞEY sormadan önce önce ad ve soyadını sor. Ad-soyadı aldığın anda create_customer tool'unu çağırarak kaydı KENDİN otomatik aç (işletmenin manuel müşteri eklemesini bekleme, telefon numarasını sorma). Kayıt açıldıktan sonra normal akışa geç.
 - Hizmet, fiyat, çalışan veya müsaitlik hakkında ASLA tahmin yürütme; her zaman ilgili tool'u çağırarak güncel veriyi al.
 - Randevu oluşturmadan/taşımadan/iptal etmeden önce ilgili tool'u çağır; bu işlemleri kendi başına "yapıldı" gibi anlatma, sadece tool başarılı döndüyse onayla.
-- Bir müşteri sistemde yoksa (get_customer null dönerse) randevu oluşturmadan önce create_customer ile kayıt aç.
 - Belirsiz bir istek geldiğinde (örn. "yarın müsait misiniz") önce get_available_slots ile kontrol et, sonra 2-3 seçenek sun.
 - Asla veritabanına doğrudan erişemezsin; sadece sana tanımlı tool'ları kullanabilirsin.
 - Yanıtların kısa, net ve WhatsApp'a uygun olsun (uzun paragraflar yazma).`;
@@ -36,6 +38,7 @@ function getClient() {
  */
 export async function runAgentTurn(
   businessId: string,
+  customerPhone: string,
   history: Anthropic.MessageParam[],
   userMessage: string,
 ): Promise<AgentTurnResult> {
@@ -66,7 +69,7 @@ export async function runAgentTurn(
     const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
     for (const block of toolUseBlocks) {
-      const result = await executeAgentTool(block.name, businessId, block.input);
+      const result = await executeAgentTool(block.name, businessId, block.input, { customerPhone });
       toolCalls.push({ name: block.name, input: block.input, result });
       toolResults.push({
         type: "tool_result",

@@ -7,14 +7,14 @@ import * as appointmentService from "@/server/services/appointment.service";
 import { createCustomerSchema } from "@/lib/validation/customer";
 import { availableSlotsQuerySchema, rescheduleAppointmentSchema } from "@/lib/validation/appointment";
 
-type ToolHandler = (businessId: string, rawInput: unknown) => Promise<unknown>;
+type ToolContext = { customerPhone: string };
+type ToolHandler = (businessId: string, rawInput: unknown, context: ToolContext) => Promise<unknown>;
 
 function money(value: unknown): number {
   return Number(value);
 }
 
 const getEmployeesInput = z.object({ serviceId: z.string().optional() });
-const getCustomerInput = z.object({ phone: z.string().min(3) });
 const createAppointmentInput = z.object({
   customerId: z.string(),
   employeeId: z.string(),
@@ -49,9 +49,8 @@ async function getAvailableSlotsHandler(businessId: string, rawInput: unknown) {
   return slots;
 }
 
-async function getCustomerHandler(businessId: string, rawInput: unknown) {
-  const { phone } = getCustomerInput.parse(rawInput);
-  const customer = await customerService.findByPhone(businessId, phone);
+async function getCustomerHandler(businessId: string, _rawInput: unknown, context: ToolContext) {
+  const customer = await customerService.findByPhone(businessId, context.customerPhone);
   if (!customer) return null;
   return {
     id: customer.id,
@@ -61,8 +60,8 @@ async function getCustomerHandler(businessId: string, rawInput: unknown) {
   };
 }
 
-async function createCustomerHandler(businessId: string, rawInput: unknown) {
-  const input = createCustomerSchema.parse(rawInput);
+async function createCustomerHandler(businessId: string, rawInput: unknown, context: ToolContext) {
+  const input = createCustomerSchema.parse({ ...(rawInput as object), phone: context.customerPhone });
   const customer = await customerService.createCustomer(businessId, input);
   return { id: customer.id, firstName: customer.firstName, lastName: customer.lastName, phone: customer.phone };
 }
@@ -118,13 +117,18 @@ const HANDLERS: Record<string, ToolHandler> = {
  * are caught and turned into `{ error: message }` so the agent loop can feed
  * them back to Claude as a tool_result instead of crashing the conversation.
  */
-export async function executeAgentTool(name: string, businessId: string, rawInput: unknown): Promise<unknown> {
+export async function executeAgentTool(
+  name: string,
+  businessId: string,
+  rawInput: unknown,
+  context: ToolContext,
+): Promise<unknown> {
   const handler = HANDLERS[name];
   if (!handler) {
     return { error: `Bilinmeyen tool: ${name}` };
   }
   try {
-    return await handler(businessId, rawInput);
+    return await handler(businessId, rawInput, context);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return { error: "Geçersiz tool girdisi", issues: error.issues };
