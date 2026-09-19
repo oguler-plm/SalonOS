@@ -39,6 +39,8 @@ export const POST = apiHandler(async (req: Request) => {
     return NextResponse.json({ error: "İşletme bulunamadı" }, { status: 404 });
   }
 
+  await prisma.appointment.deleteMany({ where: { businessId: business.id } });
+  await prisma.customer.deleteMany({ where: { businessId: business.id } });
   await prisma.employee.deleteMany({ where: { businessId: business.id } });
   await prisma.service.deleteMany({ where: { businessId: business.id } });
 
