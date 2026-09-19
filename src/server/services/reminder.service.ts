@@ -29,14 +29,14 @@ export async function sendDueReminders() {
   for (const appt of appointments) {
     const log = await repo.createReminderLog(appt.id, appt.startTime);
 
-    const settings = appt.business.settings as { whatsappNumber?: string } | null;
-    const channelActive = Boolean(settings?.whatsappNumber);
+    const settings = appt.business.settings as { whatsappPhoneNumberId?: string } | null;
+    const phoneNumberId = settings?.whatsappPhoneNumberId;
 
-    if (!channelActive) continue; // stays PENDING — no channel wired up yet
+    if (!phoneNumberId) continue; // stays PENDING — no channel wired up yet
 
     try {
       const text = formatReminderText(`${appt.customer.firstName} ${appt.customer.lastName}`, appt.service.name, appt.startTime);
-      await sendWhatsappMessage(appt.customer.phone, text);
+      await sendWhatsappMessage(phoneNumberId, appt.customer.phone, text);
       await repo.markReminderSent(log.id);
       sent += 1;
     } catch (error) {

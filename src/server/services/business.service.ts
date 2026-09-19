@@ -46,7 +46,10 @@ export function getBusiness(businessId: string) {
   return findBusinessById(businessId);
 }
 
-export async function updateProfile(businessId: string, input: { name?: string; phone?: string; whatsappNumber?: string }) {
+export async function updateProfile(
+  businessId: string,
+  input: { name?: string; phone?: string; whatsappNumber?: string; whatsappPhoneNumberId?: string },
+) {
   const business = await findBusinessById(businessId);
   if (!business) throw new NotFoundError("İşletme bulunamadı");
 
@@ -57,9 +60,13 @@ export async function updateProfile(businessId: string, input: { name?: string; 
     });
   }
 
-  if (input.whatsappNumber !== undefined) {
+  if (input.whatsappNumber !== undefined || input.whatsappPhoneNumberId !== undefined) {
     const currentSettings = (business.settings as Record<string, unknown>) ?? {};
-    await updateBusinessSettings(businessId, { ...currentSettings, whatsappNumber: input.whatsappNumber });
+    await updateBusinessSettings(businessId, {
+      ...currentSettings,
+      ...(input.whatsappNumber !== undefined && { whatsappNumber: input.whatsappNumber }),
+      ...(input.whatsappPhoneNumberId !== undefined && { whatsappPhoneNumberId: input.whatsappPhoneNumberId }),
+    });
   }
 
   const updated = await findBusinessById(businessId);

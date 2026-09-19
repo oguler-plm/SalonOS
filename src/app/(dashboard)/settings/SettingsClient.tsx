@@ -13,16 +13,19 @@ export function SettingsClient({
   initialName,
   initialPhone,
   initialWhatsappNumber,
+  initialWhatsappPhoneNumberId,
 }: {
   canEdit: boolean;
   initialName: string;
   initialPhone: string;
   initialWhatsappNumber: string;
+  initialWhatsappPhoneNumberId: string;
 }) {
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [phone, setPhone] = useState(initialPhone);
   const [whatsappNumber, setWhatsappNumber] = useState(initialWhatsappNumber);
+  const [whatsappPhoneNumberId, setWhatsappPhoneNumberId] = useState(initialWhatsappPhoneNumberId);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [pending, setPending] = useState(false);
@@ -32,7 +35,7 @@ export function SettingsClient({
     setError(null);
     setSuccess(false);
     try {
-      await api.patch("/api/business/settings", { name, phone, whatsappNumber });
+      await api.patch("/api/business/settings", { name, phone, whatsappNumber, whatsappPhoneNumberId });
       setSuccess(true);
       router.refresh();
     } catch (err) {
@@ -66,8 +69,17 @@ export function SettingsClient({
             placeholder="+90 5xx xxx xx xx"
           />
         </Field>
+        <Field label="WhatsApp Phone Number ID">
+          <Input
+            value={whatsappPhoneNumberId}
+            onChange={(e) => setWhatsappPhoneNumberId(e.target.value)}
+            disabled={!canEdit}
+            placeholder="Meta Developer Console > WhatsApp > API Setup"
+          />
+        </Field>
         <p className="rounded-lg bg-[var(--color-accent-soft)] px-3 py-2 text-xs text-[var(--color-accent-ink)]">
-          WhatsApp entegrasyonu ileriki bir sürümde aktifleşecek — bu numara şimdiden hazırlık amaçlı kaydedilir.
+          Phone Number ID, Meta Business hesabınızda bu numarayı WhatsApp Cloud API&apos;ye bağladıktan sonra
+          Meta Developer Console&apos;da görünür. Bu alan dolu olmadan gelen/giden mesajlar çalışmaz.
         </p>
       </Card>
 

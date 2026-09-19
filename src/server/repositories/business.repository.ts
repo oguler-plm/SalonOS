@@ -39,10 +39,14 @@ export function findBusinessById(businessId: string) {
   return prisma.business.findUnique({ where: { id: businessId } });
 }
 
-/** Maps an inbound WhatsApp message to its tenant via the number stored in settings. */
-export function findBusinessByWhatsappNumber(phone: string) {
+/**
+ * Maps an inbound WhatsApp message to its tenant via Meta's Cloud API phone
+ * number id stored in settings — not the human-readable number, which Meta
+ * doesn't reliably echo back on every payload.
+ */
+export function findBusinessByWhatsappPhoneNumberId(phoneNumberId: string) {
   return prisma.business.findFirst({
-    where: { settings: { path: ["whatsappNumber"], equals: phone } },
+    where: { settings: { path: ["whatsappPhoneNumberId"], equals: phoneNumberId } },
   });
 }
 

@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 export default async function SettingsPage() {
   const tenant = await requireTenant();
   const business = await getBusiness(tenant.businessId);
-  const settings = (business?.settings as { whatsappNumber?: string } | null) ?? {};
+  const settings =
+    (business?.settings as { whatsappNumber?: string; whatsappPhoneNumberId?: string } | null) ?? {};
 
   return (
     <div className="space-y-4">
@@ -16,6 +17,7 @@ export default async function SettingsPage() {
         initialName={business?.name ?? ""}
         initialPhone={business?.phone ?? ""}
         initialWhatsappNumber={settings.whatsappNumber ?? ""}
+        initialWhatsappPhoneNumberId={settings.whatsappPhoneNumberId ?? ""}
       />
     </div>
   );

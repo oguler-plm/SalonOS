@@ -1,22 +1,24 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import type { Prisma } from "@prisma/client";
 import { NotFoundError } from "@/lib/errors";
-import { findBusinessByWhatsappNumber } from "@/server/repositories/business.repository";
+import { findBusinessByWhatsappPhoneNumberId } from "@/server/repositories/business.repository";
 import * as messageLogRepo from "@/server/repositories/message-log.repository";
 import { runAgentTurn } from "@/server/ai/agent";
 
+const GRAPH_API_VERSION = "v21.0";
+
 /**
- * Entry point for an inbound WhatsApp message. This is architecture, not a
- * live integration — swap the caller (the webhook route) for the real
- * WhatsApp Business API payload shape once that's wired up; everything below
- * this line (tenant resolution, history, the agent loop, logging) stays the same.
+ * Entry point for an inbound WhatsApp message. `phoneNumberId` is Meta's
+ * Cloud API id for the business's WhatsApp number (from the webhook's
+ * `metadata.phone_number_id`) — it, not the human-readable number, is what
+ * identifies the tenant and is required to send the reply back.
  */
 export async function handleInboundWhatsappMessage(
-  businessPhone: string,
+  phoneNumberId: string,
   customerPhone: string,
   text: string,
 ) {
-  const business = await findBusinessByWhatsappNumber(businessPhone);
+  const business = await findBusinessByWhatsappPhoneNumberId(phoneNumberId);
   if (!business) {
     throw new NotFoundError("Bu WhatsApp numarasına bağlı bir işletme bulunamadı");
   }
@@ -42,14 +44,38 @@ export async function handleInboundWhatsappMessage(
     aiToolCalls: result.toolCalls.length > 0 ? (result.toolCalls as unknown as Prisma.InputJsonValue) : undefined,
   });
 
+  await sendWhatsappMessage(phoneNumberId, customerPhone, result.reply);
+
   return { businessId: business.id, reply: result.reply };
 }
 
 /**
- * TODO: real WhatsApp Business API send call. For MVP this only logs —
- * see MessageLog for the outbound record. Wiring this up is the one piece
- * that turns this skeleton into a live integration.
+ * Sends a message through Meta's WhatsApp Cloud API. Falls back to a
+ * console-log stub when WHATSAPP_ACCESS_TOKEN isn't set, so local dev and
+ * businesses that haven't connected WhatsApp yet don't need real credentials.
  */
-export async function sendWhatsappMessage(toPhone: string, text: string) {
-  console.log(`[whatsapp:stub] -> ${toPhone}: ${text}`);
+export async function sendWhatsappMessage(phoneNumberId: string, toPhone: string, text: string) {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  if (!accessToken) {
+    console.log(`[whatsapp:stub] -> ${toPhone}: ${text}`);
+    return;
+  }
+
+  const res = await fetch(`https://graph.facebook.com/${GRAPH_API_VERSION}/${phoneNumberId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to: toPhone.replace(/[^\d]/g, ""),
+      type: "text",
+      text: { body: text },
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("WhatsApp send failed:", res.status, await res.text());
+  }
 }
